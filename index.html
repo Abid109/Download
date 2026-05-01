@@ -1,29 +1,180 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Audio Downloader</title>
-    <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; }
-        .container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 400px; }
-        input { width: 90%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        button { background-color: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        button:hover { background-color: #0056b3; }
-        .status { margin-top: 15px; font-size: 0.9rem; color: #555; }
-    </style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineVault Lite</title>
+
+<style>
+body{
+  background:#0b0f1a;
+  color:white;
+  font-family:Arial;
+  text-align:center;
+  padding:15px;
+}
+input,button{
+  padding:10px;
+  margin:5px;
+  border-radius:10px;
+  border:none;
+}
+button{background:#4f8ef7;color:white;}
+.video{
+  margin-top:15px;
+}
+iframe,video{
+  width:100%;
+  max-width:600px;
+  border-radius:10px;
+}
+.item{
+  background:#1a2235;
+  margin:8px;
+  padding:10px;
+  border-radius:10px;
+  word-break:break-all;
+}
+</style>
 </head>
+
 <body>
-    <div class="container">
-        <h2>🎵 Audio Downloader</h2>
-        <p>Paste any video link below:</p>
-        <form action="/download" method="post">
-            <input type="text" name="url" placeholder="https://..." required>
-            <br>
-            <button type="submit" onclick="document.getElementById('msg').innerText = 'Processing... Please wait (this may take a minute).'">Download MP3</button>
-        </form>
-        <div class="status" id="msg"></div>
-    </div>
+
+<h2>🎬 CineVault Lite</h2>
+
+<input id="url" placeholder="Paste video link">
+<br>
+<button onclick="play()">▶️ Play</button>
+<button onclick="save()">⭐ Save</button>
+<button onclick="openTool()">⬇ Download</button>
+
+<div class="video" id="player"></div>
+
+<h3>📂 Library</h3>
+<div id="list"></div>
+
+<h3>🕓 History</h3>
+<div id="history"></div>
+
+<script>
+let current="";
+
+function play(u){
+  let url=u||document.getElementById("url").value;
+  current=url;
+  let p=document.getElementById("player");
+  p.innerHTML="";
+
+  localStorage.setItem("last",url);
+
+  // YouTube
+  if(url.includes("youtube.com")||url.includes("youtu.be")){
+    let id=url.split("v=")[1]||url.split("youtu.be/")[1];
+    if(id) id=id.split("&")[0];
+
+    p.innerHTML=`<iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
+  }
+
+  // direct video
+  else if(url.match(/\.(mp4|webm|ogg)$/)){
+    p.innerHTML=`<video id="v" controls src="${url}"></video>`;
+
+    setTimeout(()=>{
+      let v=document.getElementById("v");
+      let t=localStorage.getItem(url);
+      if(v && t) v.currentTime=t;
+
+      if(v){
+        v.ontimeupdate=()=>localStorage.setItem(url,v.currentTime);
+      }
+    },500);
+  }
+
+  else{
+    p.innerHTML="❌ Can't play this link";
+  }
+
+  addHistory(url);
+}
+
+// save
+function save(){
+  let url=document.getElementById("url").value;
+  if(!url)return;
+
+  let list=JSON.parse(localStorage.getItem("list")||"[]");
+  if(!list.includes(url)){
+    list.push(url);
+    localStorage.setItem("list",JSON.stringify(list));
+  }
+  render();
+}
+
+// render library
+function render(){
+  let list=JSON.parse(localStorage.getItem("list")||"[]");
+  let div=document.getElementById("list");
+  div.innerHTML="";
+
+  list.forEach((u,i)=>{
+    div.innerHTML+=`
+    <div class="item">
+      ${u}
+      <br>
+      <button onclick="play('${u}')">Play</button>
+      <button onclick="del(${i})">Delete</button>
+    </div>`;
+  });
+}
+
+// delete
+function del(i){
+  let list=JSON.parse(localStorage.getItem("list")||"[]");
+  list.splice(i,1);
+  localStorage.setItem("list",JSON.stringify(list));
+  render();
+}
+
+// history
+function addHistory(url){
+  let h=JSON.parse(localStorage.getItem("hist")||"[]");
+  h.unshift(url);
+  h=h.slice(0,10);
+  localStorage.setItem("hist",JSON.stringify(h));
+  renderHist();
+}
+
+function renderHist(){
+  let h=JSON.parse(localStorage.getItem("hist")||"[]");
+  let div=document.getElementById("history");
+  div.innerHTML="";
+
+  h.forEach(u=>{
+    div.innerHTML+=`
+    <div class="item">
+      ${u}
+      <br>
+      <button onclick="play('${u}')">Play</button>
+    </div>`;
+  });
+}
+
+// downloader (safe redirect)
+function openTool(){
+  if(!current)return alert("Play something first");
+  let link="https://cobalt.tools/?url="+encodeURIComponent(current);
+  window.open(link,"_blank");
+}
+
+// load
+window.onload=()=>{
+  render();
+  renderHist();
+  let last=localStorage.getItem("last");
+  if(last){
+    document.getElementById("url").value=last;
+  }
+}
+</script>
+
 </body>
 </html>
-
