@@ -1,180 +1,1094 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CineVault Lite</title>
-
+<title>CineVault — Personal Video Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-body{
-  background:#0b0f1a;
-  color:white;
-  font-family:Arial;
-  text-align:center;
-  padding:15px;
-}
-input,button{
-  padding:10px;
-  margin:5px;
-  border-radius:10px;
-  border:none;
-}
-button{background:#4f8ef7;color:white;}
-.video{
-  margin-top:15px;
-}
-iframe,video{
-  width:100%;
-  max-width:600px;
-  border-radius:10px;
-}
-.item{
-  background:#1a2235;
-  margin:8px;
-  padding:10px;
-  border-radius:10px;
-  word-break:break-all;
-}
+  :root {
+    --bg: #080b14;
+    --surface: #0e1424;
+    --card: #111827;
+    --card-hover: #161f33;
+    --border: #1e2d47;
+    --primary: #4f8ef7;
+    --primary-glow: rgba(79,142,247,0.15);
+    --accent: #f97316;
+    --accent-glow: rgba(249,115,22,0.15);
+    --danger: #ef4444;
+    --success: #10b981;
+    --text: #e8eaf2;
+    --muted: #5a6480;
+    --dim: #3a4460;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-mark {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--primary), #8b5cf6);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 0 24px rgba(79,142,247,0.3);
+  }
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+  }
+  header h1 span { color: var(--primary); }
+  .header-stats {
+    margin-left: auto;
+    display: flex;
+    gap: 20px;
+  }
+  .stat {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .stat strong {
+    display: block;
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    padding: 4px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.2s;
+    border: none;
+    background: transparent;
+  }
+  .tab.active {
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  /* ── Player ── */
+  .player-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: var(--surface);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .player-placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px;
+    color: var(--dim);
+  }
+  .player-placeholder .icon { font-size: 48px; opacity: 0.4; }
+  .player-placeholder p { font-size: 14px; }
+  iframe, #mainVideo {
+    width: 100%; height: 100%; border: none;
+    display: none;
+  }
+  .now-playing-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(0deg, rgba(0,0,0,0.85), transparent);
+    padding: 20px 16px 14px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .now-playing-bar.visible { display: flex; }
+  .np-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.6; }
+  }
+  .resume-badge {
+    position: absolute;
+    top: 12px; right: 12px;
+    background: rgba(79,142,247,0.9);
+    backdrop-filter: blur(8px);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    display: none;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* ── Section panels ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Add form ── */
+  .add-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .add-card h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .form-row { display: flex; gap: 10px; }
+  .form-group { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  label.field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+  input[type="text"],
+  input[type="url"] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input[type="text"]:focus,
+  input[type="url"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+  }
+  .file-drop {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .file-drop:hover { border-color: var(--primary); background: var(--primary-glow); color: var(--text); }
+  .file-drop input { display: none; }
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--dim); font-size: 12px; margin: 16px 0;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 11px 20px;
+    border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: #6fa0ff; box-shadow: 0 0 20px var(--primary-glow); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid rgba(239,68,68,0.3); padding: 7px 12px; font-size: 12px; }
+  .btn-danger:hover { background: rgba(239,68,68,0.1); }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 7px 12px; font-size: 12px; }
+  .btn-ghost:hover { color: var(--text); border-color: var(--dim); }
+  .btn-download { background: var(--accent-glow); color: var(--accent); border: 1px solid rgba(249,115,22,0.25); padding: 7px 12px; font-size: 12px; }
+  .btn-download:hover { background: rgba(249,115,22,0.2); }
+
+  /* ── Video list ── */
+  .list-header {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .list-header h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .search-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    width: 180px;
+    transition: border-color 0.2s;
+  }
+  .search-bar:focus { border-color: var(--primary); }
+
+  .video-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .video-item:hover { background: var(--card-hover); border-color: var(--dim); transform: translateX(2px); }
+  .video-item.playing { border-color: var(--primary); background: var(--primary-glow); }
+
+  .thumb {
+    width: 54px; height: 36px;
+    border-radius: 8px;
+    background: var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+  }
+  .video-meta { flex: 1; min-width: 0; }
+  .video-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .video-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .progress-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .progress-pill.has-progress { color: var(--primary); border-color: rgba(79,142,247,0.3); background: var(--primary-glow); }
+
+  .progress-bar-wrap {
+    width: 80px; height: 3px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 5px;
+    position: relative;
+  }
+  .progress-bar-fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width 0.3s; }
+
+  .item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* ── History panel ── */
+  .history-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .history-item .time-badge {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: right;
+    flex-shrink: 0;
+    width: 90px;
+  }
+  .clear-btn {
+    background: transparent;
+    border: 1px solid rgba(239,68,68,0.3);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .clear-btn:hover { background: rgba(239,68,68,0.1); }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--dim);
+  }
+  .empty .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .empty p { font-size: 14px; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 13px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    z-index: 999;
+    pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast .toast-icon { font-size: 16px; }
+
+  @keyframes indeterminate {
+    0% { transform: translateX(-100%); width: 50%; }
+    100% { transform: translateX(250%); width: 50%; }
+  }
+
+  @media (max-width: 600px) {
+    .form-row { flex-direction: column; }
+    .header-stats { display: none; }
+    .search-bar { width: 120px; }
+  }
 </style>
 </head>
-
 <body>
 
-<h2>🎬 CineVault Lite</h2>
+<div class="app">
 
-<input id="url" placeholder="Paste video link">
-<br>
-<button onclick="play()">▶️ Play</button>
-<button onclick="save()">⭐ Save</button>
-<button onclick="openTool()">⬇ Download</button>
+  <!-- Header -->
+  <header>
+    <div class="logo-mark">🎬</div>
+    <div>
+      <h1>Cine<span>Vault</span></h1>
+    </div>
+    <div class="header-stats">
+      <div class="stat"><strong id="statVideos">0</strong>Videos</div>
+      <div class="stat"><strong id="statWatched">0</strong>Watched</div>
+    </div>
+  </header>
 
-<div class="video" id="player"></div>
+  <!-- Player -->
+  <div class="player-wrap" id="playerWrap">
+    <div class="player-placeholder" id="placeholder">
+      <div class="icon">▶</div>
+      <p>Select a video from your library</p>
+    </div>
+    <video id="mainVideo" controls></video>
+    <iframe id="mainIframe" allowfullscreen></iframe>
+    <div class="resume-badge" id="resumeBadge">⏩ Resuming from last position</div>
+    <div class="now-playing-bar" id="nowPlayingBar">
+      <div class="np-dot"></div>
+      <span id="nowPlayingTitle">—</span>
+    </div>
+  </div>
 
-<h3>📂 Library</h3>
-<div id="list"></div>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('library')">📁 Library</button>
+    <button class="tab" onclick="switchTab('add')">＋ Add Video</button>
+    <button class="tab" onclick="switchTab('download')">⬇ Downloader</button>
+    <button class="tab" onclick="switchTab('history')">🕓 History</button>
+  </div>
 
-<h3>🕓 History</h3>
-<div id="history"></div>
+  <!-- Library Panel -->
+  <div class="panel active" id="panel-library">
+    <div class="list-header">
+      <h3>Your Library (<span id="libCount">0</span>)</h3>
+      <input class="search-bar" id="searchInput" placeholder="🔍 Search..." oninput="renderLibrary()">
+    </div>
+    <div id="videoList"></div>
+  </div>
+
+  <!-- Add Panel -->
+  <div class="panel" id="panel-add">
+    <div class="add-card">
+      <h3>📂 Local File</h3>
+      <label class="file-drop" id="dropZone">
+        <div style="font-size: 28px; margin-bottom: 8px;">📁</div>
+        <div>Click or drag & drop a video file</div>
+        <div style="font-size: 11px; margin-top: 4px;">MP4, MKV, MOV, AVI, WEBM</div>
+        <input type="file" id="localPicker" accept="video/*" onchange="addLocalVideo(event)">
+      </label>
+    </div>
+
+    <div class="add-card">
+      <h3>🌐 Web / Stream Link</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="field-label">Title</label>
+          <input type="text" id="webTitle" placeholder="My Movie Title">
+        </div>
+        <div class="form-group">
+          <label class="field-label">URL</label>
+          <input type="url" id="webUrl" placeholder="https://...">
+        </div>
+      </div>
+      <div style="margin-top: 14px;">
+        <button class="btn btn-primary" onclick="addWebVideo()">＋ Add to Library</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Download Panel -->
+  <div class="panel" id="panel-download">
+
+    <!-- Mode picker — shown FIRST, prominent -->
+    <div class="add-card">
+      <h3 style="margin-bottom:12px">⬇ Downloader</h3>
+
+      <!-- Audio / Video toggle always visible -->
+      <label class="field-label" style="display:block;margin-bottom:8px">What do you want?</label>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button id="modeVideo" class="btn btn-primary" style="flex:1;justify-content:center;padding:13px" onclick="setMode('video')">🎬 Video</button>
+        <button id="modeAudio" class="btn btn-ghost"   style="flex:1;justify-content:center;padding:13px" onclick="setMode('audio')">🎵 Audio / MP3</button>
+      </div>
+
+      <label class="field-label" style="display:block;margin-bottom:8px">Paste URL</label>
+      <input type="url" id="smartUrl" placeholder="YouTube, TikTok, Instagram, SoundCloud, .mp4…"
+             style="width:100%;margin-bottom:10px" oninput="detectUrlType()">
+
+      <!-- Auto-detected type pill -->
+      <div id="detectedBanner" style="display:none;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.5"></div>
+
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;font-size:15px" onclick="smartDownload()">
+        ⬇ Download
+      </button>
+    </div>
+
+    <!-- Result / cobalt card -->
+    <div id="dlResult" style="display:none"></div>
+
+    <!-- Direct fetch progress -->
+    <div class="add-card" id="dlProgressCard" style="display:none">
+      <h3 style="margin-bottom:12px">Download Progress</h3>
+      <div id="dlQueue"></div>
+    </div>
+
+    <!-- Supported sites info -->
+    <div class="add-card" style="border-color:rgba(79,142,247,0.15);background:rgba(79,142,247,0.03)">
+      <h3 style="color:var(--primary);margin-bottom:12px">📋 What works</h3>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:3px">✅ Downloads directly in-app</div>
+          <div style="color:var(--muted)">Direct <code style="font-size:11px;background:var(--bg);padding:1px 5px;border-radius:4px">.mp3 .mp4 .webm .wav</code> file links — full progress bar, saves to phone.</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:3px">🚀 Opens cobalt.tools (1 extra tap)</div>
+          <div style="color:var(--muted)">YouTube · YouTube Music · Instagram · TikTok · Twitter/X · Reddit · SoundCloud · Vimeo · Pinterest · and more.</div>
+          <div style="color:var(--dim);font-size:11px;margin-top:6px">Your link opens pre-filled. For audio/MP3 tap the 🎵 Audio toggle on cobalt.tools first.</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px">
+          <div style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:3px;color:var(--danger)">❌ Not possible anywhere in a browser</div>
+          <div style="color:var(--muted)">Netflix · Disney+ · Spotify · Apple Music — DRM protected, no tool can download these.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Panel -->
+  <div class="panel" id="panel-history">
+    <div class="list-header">
+      <h3>Watch History</h3>
+      <button class="clear-btn" onclick="clearHistory()">🗑 Clear All</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"><span class="toast-icon" id="toastIcon">✓</span><span id="toastMsg"></span></div>
 
 <script>
-let current="";
+  let videos = JSON.parse(localStorage.getItem('cv_videos')) || [];
+  let history = JSON.parse(localStorage.getItem('cv_history')) || {};
+  let watchLog = JSON.parse(localStorage.getItem('cv_watchlog')) || [];
+  let currentTitle = null;
+  let currentType = null;
 
-function play(u){
-  let url=u||document.getElementById("url").value;
-  current=url;
-  let p=document.getElementById("player");
-  p.innerHTML="";
-
-  localStorage.setItem("last",url);
-
-  // YouTube
-  if(url.includes("youtube.com")||url.includes("youtu.be")){
-    let id=url.split("v=")[1]||url.split("youtu.be/")[1];
-    if(id) id=id.split("&")[0];
-
-    p.innerHTML=`<iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
+  // ── Tab switching ──
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => {
+      const names = ['library','add','download','history'];
+      t.classList.toggle('active', names[i] === name);
+    });
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'history') renderHistory();
+    if (name === 'library') renderLibrary();
   }
 
-  // direct video
-  else if(url.match(/\.(mp4|webm|ogg)$/)){
-    p.innerHTML=`<video id="v" controls src="${url}"></video>`;
+  // ── Render library ──
+  function renderLibrary() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = videos.filter(v => v.title.toLowerCase().includes(query));
+    const list = document.getElementById('videoList');
+    document.getElementById('libCount').textContent = filtered.length;
+    document.getElementById('statVideos').textContent = videos.length;
+    const watched = Object.keys(history).filter(k => history[k] > 0).length;
+    document.getElementById('statWatched').textContent = watched;
 
-    setTimeout(()=>{
-      let v=document.getElementById("v");
-      let t=localStorage.getItem(url);
-      if(v && t) v.currentTime=t;
+    if (!filtered.length) {
+      list.innerHTML = `<div class="empty"><div class="empty-icon">🎬</div><p>${query ? 'No results found.' : 'Your library is empty. Add some videos!'}</p></div>`;
+      return;
+    }
 
-      if(v){
-        v.ontimeupdate=()=>localStorage.setItem(url,v.currentTime);
+    list.innerHTML = filtered.map((v, i) => {
+      const realIdx = videos.indexOf(v);
+      const saved = history[v.title] || 0;
+      const dur = v.duration || 0;
+      const pct = dur > 0 ? Math.min(100, (saved / dur) * 100) : 0;
+      const timeStr = saved > 0 ? `${Math.floor(saved/60)}m ${Math.floor(saved%60)}s` : 'Not started';
+      const isPlaying = currentTitle === v.title;
+      const emoji = v.type === 'local' ? '🎞️' : '🌐';
+      const downloadBtn = `<button class="btn btn-download" onclick="downloadVideo(${realIdx}, event)" title="Download">⬇</button>`;
+
+      return `
+        <div class="video-item ${isPlaying ? 'playing' : ''}" onclick="playVideo(${realIdx})">
+          <div class="thumb">${emoji}</div>
+          <div class="video-meta">
+            <div class="video-title">${v.title}</div>
+            <div class="video-sub">
+              <span class="progress-pill ${saved > 0 ? 'has-progress' : ''}">${timeStr}</span>
+              <span style="color:var(--dim)">${v.type === 'local' ? 'Local' : 'Stream'}</span>
+            </div>
+            ${dur > 0 ? `<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>` : ''}
+          </div>
+          <div class="item-actions" onclick="event.stopPropagation()">
+            ${downloadBtn}
+            <button class="btn btn-danger" onclick="removeVideo(${realIdx})">✕</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // ── Play ──
+  function playVideo(i) {
+    const v = videos[i];
+    currentTitle = v.title;
+    currentType = v.type;
+
+    const placeholder = document.getElementById('placeholder');
+    const videoEl = document.getElementById('mainVideo');
+    const iframeEl = document.getElementById('mainIframe');
+    const bar = document.getElementById('nowPlayingBar');
+    const badge = document.getElementById('resumeBadge');
+
+    placeholder.style.display = 'none';
+
+    if (v.type === 'local') {
+      iframeEl.style.display = 'none';
+      iframeEl.src = '';
+      videoEl.style.display = 'block';
+      videoEl.src = v.url;
+
+      videoEl.onloadedmetadata = () => {
+        const saved = history[v.title] || 0;
+        videos[i].duration = videoEl.duration;
+        saveVideos();
+        if (saved > 2) {
+          videoEl.currentTime = saved;
+          badge.style.display = 'block';
+          setTimeout(() => badge.style.display = 'none', 3000);
+        }
+      };
+
+      videoEl.ontimeupdate = () => {
+        history[v.title] = videoEl.currentTime;
+        localStorage.setItem('cv_history', JSON.stringify(history));
+        renderLibrary();
+      };
+
+      videoEl.play().catch(()=>{});
+    } else {
+      videoEl.style.display = 'none';
+      videoEl.src = '';
+      iframeEl.style.display = 'block';
+      iframeEl.src = v.url;
+    }
+
+    bar.classList.add('visible');
+    document.getElementById('nowPlayingTitle').textContent = v.title;
+
+    // Log to watch history
+    logWatch(v.title);
+
+    document.getElementById('playerWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    renderLibrary();
+  }
+
+  // ── Watch log ──
+  function logWatch(title) {
+    const now = new Date().toISOString();
+    watchLog = watchLog.filter(e => e.title !== title);
+    watchLog.unshift({ title, at: now });
+    if (watchLog.length > 50) watchLog.pop();
+    localStorage.setItem('cv_watchlog', JSON.stringify(watchLog));
+  }
+
+  // ── History panel ──
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    if (!watchLog.length) {
+      list.innerHTML = `<div class="empty"><div class="empty-icon">🕓</div><p>No watch history yet.</p></div>`;
+      return;
+    }
+    list.innerHTML = watchLog.map(e => {
+      const d = new Date(e.at);
+      const dateStr = d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      const timeStr = d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
+      const saved = history[e.title];
+      const timeDisplay = saved > 0 ? `Stopped at ${Math.floor(saved/60)}m ${Math.floor(saved%60)}s` : 'Started';
+      return `
+        <div class="history-item">
+          <div class="thumb">🎞️</div>
+          <div class="video-meta">
+            <div class="video-title">${e.title}</div>
+            <div class="video-sub"><span class="progress-pill ${saved > 0 ? 'has-progress':''}">${timeDisplay}</span></div>
+          </div>
+          <div class="time-badge">${dateStr}<br>${timeStr}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function clearHistory() {
+    watchLog = [];
+    history = {};
+    localStorage.removeItem('cv_watchlog');
+    localStorage.removeItem('cv_history');
+    toast('🗑️', 'History cleared');
+    renderHistory();
+    renderLibrary();
+  }
+
+  // ── Add videos ──
+  function addLocalVideo(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (videos.some(v => v.title === file.name)) { toast('⚠️', 'Already in library'); return; }
+    const url = URL.createObjectURL(file);
+    videos.push({ title: file.name, url, type: 'local', added: Date.now() });
+    saveVideos();
+    switchTab('library');
+    toast('✅', `Added: ${file.name}`);
+  }
+
+  function addWebVideo() {
+    const title = document.getElementById('webTitle').value.trim();
+    const url = document.getElementById('webUrl').value.trim();
+    if (!title || !url) { toast('⚠️', 'Fill in both fields'); return; }
+    if (videos.some(v => v.title === title)) { toast('⚠️', 'Title already exists'); return; }
+    videos.push({ title, url, type: 'web', added: Date.now() });
+    saveVideos();
+    document.getElementById('webTitle').value = '';
+    document.getElementById('webUrl').value = '';
+    switchTab('library');
+    toast('✅', `Added: ${title}`);
+  }
+
+  // ── URL type detection ──
+  // SoundCloud is kept separate — its stream URLs are direct-fetchable
+  const COBALT_SITES = ['youtube.com','youtu.be','music.youtube.com','instagram.com','tiktok.com',
+    'twitter.com','x.com','reddit.com','pinterest.com','tumblr.com','bilibili.com',
+    'dailymotion.com','twitch.tv','vimeo.com','snapchat.com','facebook.com','fb.watch'];
+  const SOUNDCLOUD_HOSTS = ['soundcloud.com','snd.sc'];
+  const DIRECT_VIDEO = /\.(mp4|webm|mov|mkv|avi|ogv|m4v|flv)(\?.*)?$/i;
+  const DIRECT_AUDIO = /\.(mp3|ogg|wav|flac|aac|m4a|opus)(\?.*)?$/i;
+
+  let currentMode = 'video';
+
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('modeVideo').className = 'btn ' + (mode === 'video' ? 'btn-primary' : 'btn-ghost');
+    document.getElementById('modeVideo').style.cssText = 'flex:1;justify-content:center;padding:13px';
+    document.getElementById('modeAudio').className = 'btn ' + (mode === 'audio' ? 'btn-primary' : 'btn-ghost');
+    document.getElementById('modeAudio').style.cssText = 'flex:1;justify-content:center;padding:13px';
+    detectUrlType();
+  }
+
+  function getUrlType(url) {
+    if (!url) return 'empty';
+    try {
+      const host = new URL(url).hostname.replace('www.','');
+      if (SOUNDCLOUD_HOSTS.some(s => host.includes(s))) return 'soundcloud';
+      if (COBALT_SITES.some(s => host.includes(s))) return 'cobalt';
+      if (DIRECT_AUDIO.test(url)) return 'direct-audio';
+      if (DIRECT_VIDEO.test(url)) return 'direct-video';
+      return 'unknown';
+    } catch { return 'empty'; }
+  }
+
+  function detectUrlType() {
+    const url = document.getElementById('smartUrl').value.trim();
+    const type = getUrlType(url);
+    const banner = document.getElementById('detectedBanner');
+    if (!url) { banner.style.display = 'none'; return; }
+    const isAudio = currentMode === 'audio';
+
+    const configs = {
+      soundcloud: {
+        bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.3)',
+        icon: '🎵',
+        text: isAudio
+          ? '🟠 SoundCloud detected — will download <strong>audio directly</strong> inside this app.'
+          : '🟠 SoundCloud detected — switch to <strong>Audio mode</strong> above to download the track directly.'
+      },
+      cobalt: {
+        bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.3)',
+        icon: isAudio ? '🎵' : '▶️',
+        text: isAudio
+          ? 'Will open <strong>cobalt.tools</strong> — tap the 🎵 Audio toggle there, then Download. Saves MP3 to your phone.'
+          : 'Will open <strong>cobalt.tools</strong> — tap Download there. Saves the video to your phone.'
+      },
+      'direct-audio': {
+        bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.3)',
+        icon: '🎵', text: '✅ Direct audio file — downloads <strong>right here</strong> to your phone.'
+      },
+      'direct-video': {
+        bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.3)',
+        icon: '🎬', text: isAudio
+          ? '⚠️ This is a video link. Switch to <strong>Video mode</strong> to download it directly.'
+          : '✅ Direct video file — downloads <strong>right here</strong> with a progress bar.'
+      },
+      unknown: {
+        bg: 'rgba(79,142,247,0.08)', border: 'rgba(79,142,247,0.3)',
+        icon: '🔗', text: 'Unknown link — will try cobalt.tools with your link pre-filled.'
       }
-    },500);
+    };
+
+    const c = configs[type] || configs.unknown;
+    banner.style.cssText = `display:block;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.6;background:${c.bg};border:1px solid ${c.border};color:var(--text)`;
+    banner.innerHTML = `${c.icon} ${c.text}`;
   }
 
-  else{
-    p.innerHTML="❌ Can't play this link";
+  // ── Smart download dispatcher ──
+  async function smartDownload() {
+    const url = document.getElementById('smartUrl').value.trim();
+    if (!url) { toast('⚠️', 'Paste a URL first'); return; }
+    const type = getUrlType(url);
+    const isAudio = currentMode === 'audio';
+
+    if (type === 'soundcloud') {
+      if (!isAudio) {
+        toast('💡', 'Switch to Audio mode for SoundCloud');
+        setMode('audio');
+        return;
+      }
+      await fetchSoundCloud(url);
+      return;
+    }
+
+    if (type === 'cobalt' || type === 'unknown') {
+      openInCobalt(url, isAudio);
+      return;
+    }
+
+    if (type === 'direct-audio' || type === 'direct-video') {
+      const extMatch = url.match(/\.(mp3|ogg|wav|flac|aac|m4a|opus|mp4|webm|mov|mkv|avi|ogv|m4v|flv)/i);
+      const ext = extMatch ? extMatch[0] : (type === 'direct-audio' ? '.mp3' : '.mp4');
+      let name;
+      try { name = decodeURIComponent(new URL(url).pathname.split('/').pop()) || ('download' + ext); }
+      catch { name = 'download' + ext; }
+      if (!name.includes('.')) name += ext;
+      const jobId = Date.now();
+      dlJobs.unshift({ id: jobId, name, url, status: 'fetching', progress: 0 });
+      renderDlQueue();
+      document.getElementById('dlProgressCard').style.display = 'block';
+      await fetchDownload(url, name, jobId);
+    }
   }
 
-  addHistory(url);
-}
+  // ── SoundCloud direct downloader ──
+  // SoundCloud exposes a public resolve API — we fetch the stream URL from their oEmbed + widget API
+  async function fetchSoundCloud(pageUrl) {
+    const resultEl = document.getElementById('dlResult');
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = `
+      <div class="add-card" style="text-align:center;padding:28px">
+        <div style="font-size:28px;margin-bottom:10px">🎵</div>
+        <div style="color:var(--muted);font-size:14px">Fetching SoundCloud track info…</div>
+      </div>`;
 
-// save
-function save(){
-  let url=document.getElementById("url").value;
-  if(!url)return;
+    try {
+      // Step 1: resolve track metadata via oEmbed (no key needed)
+      const oembedResp = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(pageUrl)}`);
+      if (!oembedResp.ok) throw new Error('Could not load track info from SoundCloud');
+      const oembedData = await oembedResp.json();
+      const title = oembedData.title || 'SoundCloud Track';
+      const thumb = oembedData.thumbnail_url || '';
+      const author = oembedData.author_name || '';
 
-  let list=JSON.parse(localStorage.getItem("list")||"[]");
-  if(!list.includes(url)){
-    list.push(url);
-    localStorage.setItem("list",JSON.stringify(list));
+      // Step 2: Show "Open in SoundCloud" download card
+      // SoundCloud's actual MP3 stream requires their private API key which isn't publicly available.
+      // Best we can do in-browser: open cobalt.tools which handles SoundCloud properly.
+      resultEl.innerHTML = `
+        <div class="add-card" style="border-color:rgba(249,115,22,0.35);background:rgba(249,115,22,0.06)">
+          ${thumb ? `<img src="${thumb}" style="width:100%;border-radius:8px;margin-bottom:12px;object-fit:cover;max-height:120px">` : ''}
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:2px">${title}</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${author}</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;background:var(--surface);padding:10px;border-radius:8px;border:1px solid var(--border)">
+            🎵 SoundCloud's MP3 stream requires their private API key so we can't fetch it directly.<br>
+            <strong style="color:var(--text)">cobalt.tools handles SoundCloud perfectly</strong> — tap below and it downloads the MP3 straight to your phone.
+          </div>
+          <a href="https://cobalt.tools/#${encodeURIComponent(pageUrl)}" target="_blank"
+             style="display:block;background:var(--accent);color:#fff;text-decoration:none;border-radius:10px;padding:14px;text-align:center;font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:8px">
+            🚀 Download on cobalt.tools
+          </a>
+          <div style="font-size:11px;color:var(--dim);text-align:center;margin-bottom:10px">
+            💡 On cobalt.tools, make sure <strong style="color:var(--muted)">🎵 Audio</strong> mode is selected
+          </div>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="document.getElementById('dlResult').style.display='none'">✕ Dismiss</button>
+        </div>`;
+
+    } catch(err) {
+      resultEl.innerHTML = `
+        <div class="add-card" style="border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.05)">
+          <div style="font-size:22px;margin-bottom:8px">❌</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;color:var(--danger);margin-bottom:6px">Couldn't load track</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:14px">${err.message}</div>
+          <a href="https://cobalt.tools/#${encodeURIComponent(pageUrl)}" target="_blank"
+             style="display:block;background:var(--accent);color:#fff;text-decoration:none;border-radius:10px;padding:12px;text-align:center;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;margin-bottom:8px">
+            🚀 Try on cobalt.tools anyway
+          </a>
+          <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="document.getElementById('dlResult').style.display='none'">✕ Dismiss</button>
+        </div>`;
+    }
   }
-  render();
-}
 
-// render library
-function render(){
-  let list=JSON.parse(localStorage.getItem("list")||"[]");
-  let div=document.getElementById("list");
-  div.innerHTML="";
+  // ── Open in cobalt.tools ──
+  function openInCobalt(url, isAudio) {
+    const cobaltUrl = `https://cobalt.tools/#${encodeURIComponent(url)}`;
+    const resultEl = document.getElementById('dlResult');
+    resultEl.style.display = 'block';
+    const modeLabel = isAudio ? 'MP3 / Audio' : 'Video';
+    const modeInstructions = isAudio
+      ? 'On cobalt.tools: tap the <strong>🎵 Audio</strong> toggle at the top, then tap Download. Your MP3 saves straight to your phone.'
+      : 'On cobalt.tools: tap <strong>Download</strong> and the video saves to your phone.';
+    resultEl.innerHTML = `
+      <div class="add-card" style="border-color:rgba(249,115,22,0.3);background:rgba(249,115,22,0.06)">
+        <div style="font-size:22px;margin-bottom:8px">${isAudio ? '🎵' : '🎬'}</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:6px">
+          Open in cobalt.tools — ${modeLabel}
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">${modeInstructions}</div>
+        <div style="font-size:11px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:14px;word-break:break-all;color:var(--dim)">${url}</div>
+        <a href="${cobaltUrl}" target="_blank"
+           style="display:block;background:var(--accent);color:#fff;text-decoration:none;border-radius:10px;padding:14px;text-align:center;font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:8px">
+          🚀 Open cobalt.tools
+        </a>
+        ${isAudio ? `<div style="font-size:11px;color:var(--dim);text-align:center;margin-bottom:10px">💡 Tap the <strong style="color:var(--muted)">🎵 Audio</strong> toggle on cobalt.tools before downloading</div>` : ''}
+        <button class="btn btn-ghost" style="width:100%;justify-content:center" onclick="document.getElementById('dlResult').style.display='none'">✕ Dismiss</button>
+      </div>`;
+    toast('🚀', 'cobalt.tools ready — tap Open');
+  }
 
-  list.forEach((u,i)=>{
-    div.innerHTML+=`
-    <div class="item">
-      ${u}
-      <br>
-      <button onclick="play('${u}')">Play</button>
-      <button onclick="del(${i})">Delete</button>
-    </div>`;
+  // ── Download from library ──
+  function downloadVideo(i, e) {
+    e.stopPropagation();
+    const v = videos[i];
+    if (v.type === 'local') {
+      const a = document.createElement('a');
+      a.href = v.url; a.download = v.title; a.click();
+      toast('⬇️', `Downloading: ${v.title}`);
+      return;
+    }
+    switchTab('download');
+    document.getElementById('smartUrl').value = v.url;
+    detectUrlType();
+    toast('🔗', 'URL loaded — tap Download');
+  }
+
+  // ── Direct fetch downloader ──
+  let dlJobs = [];
+
+  async function fetchDownload(url, name, jobId) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const contentType = resp.headers.get('content-type') || '';
+      if (contentType.includes('text/html')) throw new Error('URL returned a webpage, not a file');
+      const total = parseInt(resp.headers.get('content-length') || '0');
+      const reader = resp.body.getReader();
+      const chunks = []; let loaded = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value); loaded += value.length;
+        const pct = total > 0 ? Math.round((loaded / total) * 100) : -1;
+        updateJob(jobId, 'fetching', pct, loaded, total);
+      }
+      const blob = new Blob(chunks);
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl; a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+      updateJob(jobId, 'done', 100, loaded, total);
+      toast('✅', `Saved: ${name}`);
+    } catch(err) {
+      updateJob(jobId, 'error', 0, 0, 0, err.message);
+      toast('❌', err.message.slice(0, 45));
+    }
+  }
+
+  function updateJob(id, status, progress, loaded, total, error) {
+    const j = dlJobs.find(j => j.id === id);
+    if (j) { j.status = status; j.progress = progress; j.loaded = loaded; j.total = total; j.error = error; }
+    renderDlQueue();
+  }
+
+  function renderDlQueue() {
+    const el = document.getElementById('dlQueue');
+    if (!el) return;
+    el.innerHTML = dlJobs.map(j => {
+      const pctLabel = j.progress >= 0 ? `${j.progress}%` : 'Downloading…';
+      const sizeLabel = j.loaded > 0 ? `${(j.loaded/1024/1024).toFixed(1)} MB${j.total > 0 ? ` / ${(j.total/1024/1024).toFixed(1)} MB` : ''}` : '';
+      let statusHtml = '';
+      if (j.status === 'fetching') {
+        statusHtml = `<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px"><span>${pctLabel}</span><span>${sizeLabel}</span></div>
+          <div class="progress-bar-wrap" style="width:100%;height:5px"><div class="progress-bar-fill" style="width:${j.progress >= 0 ? j.progress : 40}%"></div></div>`;
+      } else if (j.status === 'done') {
+        statusHtml = `<span style="color:var(--success);font-size:12px">✅ Saved — ${(j.loaded/1024/1024).toFixed(1)} MB</span>`;
+      } else {
+        statusHtml = `<span style="color:var(--danger);font-size:12px">❌ ${j.error || 'Failed'}</span>`;
+      }
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:600;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${j.name}</div>
+        ${statusHtml}</div>`;
+    }).join('');
+  }
+
+  // ── Remove ──
+  function removeVideo(i) {
+    const title = videos[i].title;
+    videos.splice(i, 1);
+    if (currentTitle === title) {
+      document.getElementById('mainVideo').src = '';
+      document.getElementById('mainIframe').src = '';
+      document.getElementById('mainVideo').style.display = 'none';
+      document.getElementById('mainIframe').style.display = 'none';
+      document.getElementById('placeholder').style.display = 'flex';
+      document.getElementById('nowPlayingBar').classList.remove('visible');
+      currentTitle = null;
+    }
+    saveVideos();
+    toast('🗑️', `Removed: ${title}`);
+  }
+
+  // ── Persist ──
+  function saveVideos() {
+    localStorage.setItem('cv_videos', JSON.stringify(videos));
+    renderLibrary();
+  }
+
+  // ── Toast ──
+  function toast(icon, msg) {
+    const el = document.getElementById('toast');
+    document.getElementById('toastIcon').textContent = icon;
+    document.getElementById('toastMsg').textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2800);
+  }
+
+  // ── Drag & drop ──
+  const dz = document.getElementById('dropZone');
+  document.body.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = 'var(--primary)'; });
+  document.body.addEventListener('dragleave', () => { dz.style.borderColor = ''; });
+  document.body.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.style.borderColor = '';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('video/')) {
+      addLocalVideo({ target: { files: [file] } });
+    }
   });
-}
 
-// delete
-function del(i){
-  let list=JSON.parse(localStorage.getItem("list")||"[]");
-  list.splice(i,1);
-  localStorage.setItem("list",JSON.stringify(list));
-  render();
-}
-
-// history
-function addHistory(url){
-  let h=JSON.parse(localStorage.getItem("hist")||"[]");
-  h.unshift(url);
-  h=h.slice(0,10);
-  localStorage.setItem("hist",JSON.stringify(h));
-  renderHist();
-}
-
-function renderHist(){
-  let h=JSON.parse(localStorage.getItem("hist")||"[]");
-  let div=document.getElementById("history");
-  div.innerHTML="";
-
-  h.forEach(u=>{
-    div.innerHTML+=`
-    <div class="item">
-      ${u}
-      <br>
-      <button onclick="play('${u}')">Play</button>
-    </div>`;
-  });
-}
-
-// downloader (safe redirect)
-function openTool(){
-  if(!current)return alert("Play something first");
-  let link="https://cobalt.tools/?url="+encodeURIComponent(current);
-  window.open(link,"_blank");
-}
-
-// load
-window.onload=()=>{
-  render();
-  renderHist();
-  let last=localStorage.getItem("last");
-  if(last){
-    document.getElementById("url").value=last;
-  }
-}
+  renderLibrary();
 </script>
-
 </body>
 </html>
