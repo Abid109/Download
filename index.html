@@ -460,12 +460,34 @@
       <p>Select a video from your library</p>
     </div>
     <video id="mainVideo" controls></video>
-    <iframe id="mainIframe" allowfullscreen></iframe>
+    <iframe id="mainIframe" allowfullscreen allow="autoplay; fullscreen"></iframe>
+    <div id="embedBlocked" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:var(--surface)">
+      <div style="font-size:36px">🚫</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">Can't play inside the app</div>
+      <div style="font-size:13px;color:var(--muted);max-width:300px;line-height:1.6">This site blocks embedding. Tap below to open it in your browser.</div>
+      <a id="openExternalLink" href="#" target="_blank"
+         style="background:var(--primary);color:#fff;text-decoration:none;border-radius:10px;padding:12px 24px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px">
+        🌐 Open in Browser
+      </a>
+    </div>
     <div class="resume-badge" id="resumeBadge">⏩ Resuming from last position</div>
     <div class="now-playing-bar" id="nowPlayingBar">
       <div class="np-dot"></div>
       <span id="nowPlayingTitle">—</span>
     </div>
+  </div>
+
+  <!-- Audio Player Bar -->
+  <div id="audioBar" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="font-size:24px">🎵</div>
+      <div style="flex:1;min-width:0">
+        <div id="audioTitle" style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Audio Track</div>
+      </div>
+      <button onclick="stopAudio()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px">✕</button>
+    </div>
+    <audio id="mainAudio" controls style="width:100%;height:40px;border-radius:8px;accent-color:var(--primary)"></audio>
   </div>
 
   <!-- Tabs -->
@@ -491,9 +513,9 @@
       <h3>📂 Local File</h3>
       <label class="file-drop" id="dropZone">
         <div style="font-size: 28px; margin-bottom: 8px;">📁</div>
-        <div>Click or drag & drop a video file</div>
-        <div style="font-size: 11px; margin-top: 4px;">MP4, MKV, MOV, AVI, WEBM</div>
-        <input type="file" id="localPicker" accept="video/*" onchange="addLocalVideo(event)">
+        <div>Click or drag & drop a video or audio file</div>
+        <div style="font-size: 11px; margin-top: 4px;">MP4, MKV, MOV, AVI, WEBM, MP3, AAC, WAV, FLAC</div>
+        <input type="file" id="localPicker" accept="video/*,audio/*" onchange="addLocalVideo(event)">
       </label>
     </div>
 
@@ -506,7 +528,7 @@
         </div>
         <div class="form-group">
           <label class="field-label">URL</label>
-          <input type="url" id="webUrl" placeholder="https://...">
+          <input type="url" id="webUrl" placeholder="https://... (video or audio link)">
         </div>
       </div>
       <div style="margin-top: 14px;">
@@ -626,7 +648,10 @@
       const pct = dur > 0 ? Math.min(100, (saved / dur) * 100) : 0;
       const timeStr = saved > 0 ? `${Math.floor(saved/60)}m ${Math.floor(saved%60)}s` : 'Not started';
       const isPlaying = currentTitle === v.title;
-      const emoji = v.type === 'local' ? '🎞️' : '🌐';
+      const isAudioLink = v.type === 'web' && /\.(mp3|ogg|wav|flac|aac|m4a|opus|weba)(\?.*)?$/i.test(v.url);
+      const isLocalAudio = v.type === 'local' && v.mediaKind === 'audio';
+      const emoji = v.type === 'local' ? (isLocalAudio ? '🎵' : '🎞️') : isAudioLink ? '🎵' : '🌐';
+      const typeLabel = v.type === 'local' ? (isLocalAudio ? 'Local Audio' : 'Local') : isAudioLink ? 'Audio' : 'Stream';
       const downloadBtn = `<button class="btn btn-download" onclick="downloadVideo(${realIdx}, event)" title="Download">⬇</button>`;
 
       return `
@@ -636,7 +661,7 @@
             <div class="video-title">${v.title}</div>
             <div class="video-sub">
               <span class="progress-pill ${saved > 0 ? 'has-progress' : ''}">${timeStr}</span>
-              <span style="color:var(--dim)">${v.type === 'local' ? 'Local' : 'Stream'}</span>
+              <span style="color:var(--dim)">${typeLabel}</span>
             </div>
             ${dur > 0 ? `<div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>` : ''}
           </div>
@@ -648,26 +673,92 @@
     }).join('');
   }
 
+  // ── Detect media type from URL ──
+  const DIRECT_VIDEO_EXT = /\.(mp4|webm|mov|mkv|avi|ogv|m4v|flv|3gp)(\?.*)?$/i;
+  const DIRECT_AUDIO_EXT = /\.(mp3|ogg|wav|flac|aac|m4a|opus|weba)(\?.*)?$/i;
+  // Sites known to allow iframe embedding
+  const EMBEDDABLE = ['youtube.com','youtu.be','vimeo.com','dailymotion.com','twitch.tv','rumble.com'];
+  // Sites that definitely block iframes
+  const BLOCKS_EMBED = ['instagram.com','tiktok.com','twitter.com','x.com','facebook.com',
+    'fb.watch','reddit.com','soundcloud.com','music.youtube.com','bilibili.com',
+    'pinterest.com','snapchat.com','netflix.com','spotify.com'];
+
+  function getLinkMediaType(url) {
+    if (!url) return 'unknown';
+    if (DIRECT_VIDEO_EXT.test(url)) return 'direct-video';
+    if (DIRECT_AUDIO_EXT.test(url)) return 'direct-audio';
+    try {
+      const host = new URL(url).hostname.replace('www.','');
+      if (BLOCKS_EMBED.some(s => host.includes(s))) return 'blocked';
+      if (EMBEDDABLE.some(s => host.includes(s))) return 'embed';
+    } catch {}
+    // Unknown — try direct video first, fall back to embed attempt
+    return 'try-embed';
+  }
+
+  function getYouTubeEmbedUrl(url) {
+    try {
+      const u = new URL(url);
+      let id = u.searchParams.get('v');
+      if (!id && u.hostname.includes('youtu.be')) id = u.pathname.slice(1);
+      if (!id) return null;
+      const start = u.searchParams.get('t') || '';
+      return `https://www.youtube.com/embed/${id}?autoplay=1${start ? '&start=' + parseInt(start) : ''}`;
+    } catch { return null; }
+  }
+
+  function getVimeoEmbedUrl(url) {
+    try {
+      const match = url.match(/vimeo\.com\/(\d+)/);
+      return match ? `https://player.vimeo.com/video/${match[1]}?autoplay=1` : null;
+    } catch { return null; }
+  }
+
   // ── Play ──
   function playVideo(i) {
     const v = videos[i];
     currentTitle = v.title;
     currentType = v.type;
 
-    const placeholder = document.getElementById('placeholder');
-    const videoEl = document.getElementById('mainVideo');
-    const iframeEl = document.getElementById('mainIframe');
-    const bar = document.getElementById('nowPlayingBar');
-    const badge = document.getElementById('resumeBadge');
+    const placeholder   = document.getElementById('placeholder');
+    const videoEl       = document.getElementById('mainVideo');
+    const audioEl       = document.getElementById('mainAudio');
+    const audioBar      = document.getElementById('audioBar');
+    const iframeEl      = document.getElementById('mainIframe');
+    const blockedEl     = document.getElementById('embedBlocked');
+    const bar           = document.getElementById('nowPlayingBar');
+    const badge         = document.getElementById('resumeBadge');
+    const playerWrap    = document.getElementById('playerWrap');
 
+    // Reset all
+    videoEl.style.display = 'none'; videoEl.src = '';
+    iframeEl.style.display = 'none'; iframeEl.src = '';
+    blockedEl.style.display = 'none';
+    audioBar.style.display = 'none'; audioEl.src = '';
     placeholder.style.display = 'none';
+    playerWrap.style.display = 'block';
 
-    if (v.type === 'local') {
-      iframeEl.style.display = 'none';
-      iframeEl.src = '';
+    const mediaType = v.type === 'local' ? (v.mediaKind === 'audio' ? 'direct-audio' : 'direct-video') : getLinkMediaType(v.url);
+
+    if (mediaType === 'direct-audio') {
+      // ── Audio player ──
+      playerWrap.style.display = 'none';
+      audioBar.style.display = 'block';
+      document.getElementById('audioTitle').textContent = v.title;
+      audioEl.src = v.url;
+      audioEl.play().catch(()=>{});
+      bar.classList.add('visible');
+      document.getElementById('nowPlayingTitle').textContent = '🎵 ' + v.title;
+      audioBar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      logWatch(v.title);
+      renderLibrary();
+      return;
+    }
+
+    if (mediaType === 'direct-video' || v.type === 'local') {
+      // ── Native video player ──
       videoEl.style.display = 'block';
       videoEl.src = v.url;
-
       videoEl.onloadedmetadata = () => {
         const saved = history[v.title] || 0;
         videos[i].duration = videoEl.duration;
@@ -678,28 +769,66 @@
           setTimeout(() => badge.style.display = 'none', 3000);
         }
       };
-
       videoEl.ontimeupdate = () => {
         history[v.title] = videoEl.currentTime;
         localStorage.setItem('cv_history', JSON.stringify(history));
-        renderLibrary();
       };
-
+      videoEl.onerror = () => {
+        // Fallback: might still be embeddable
+        videoEl.style.display = 'none';
+        showBlocked(v.url);
+      };
       videoEl.play().catch(()=>{});
-    } else {
-      videoEl.style.display = 'none';
-      videoEl.src = '';
+
+    } else if (mediaType === 'embed' || mediaType === 'try-embed') {
+      // ── Iframe embed with smart URL conversion ──
+      let embedUrl = v.url;
+      const host = (() => { try { return new URL(v.url).hostname; } catch { return ''; } })();
+      if (host.includes('youtube') || host.includes('youtu.be')) {
+        embedUrl = getYouTubeEmbedUrl(v.url) || v.url;
+      } else if (host.includes('vimeo')) {
+        embedUrl = getVimeoEmbedUrl(v.url) || v.url;
+      }
       iframeEl.style.display = 'block';
-      iframeEl.src = v.url;
+      iframeEl.src = embedUrl;
+      // If embed fails/blocked, show fallback after short delay
+      iframeEl.onerror = () => showBlocked(v.url);
+      if (mediaType === 'try-embed') {
+        setTimeout(() => {
+          // If iframe loaded but is tiny/empty (cross-origin), content might be blocked
+          // We can't detect this reliably so just show both options
+        }, 3000);
+      }
+
+    } else {
+      // ── Site known to block embeds ──
+      showBlocked(v.url);
+      return;
     }
 
     bar.classList.add('visible');
     document.getElementById('nowPlayingTitle').textContent = v.title;
-
-    // Log to watch history
     logWatch(v.title);
+    playerWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    renderLibrary();
+  }
 
-    document.getElementById('playerWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  function showBlocked(url) {
+    const playerWrap = document.getElementById('playerWrap');
+    const blockedEl  = document.getElementById('embedBlocked');
+    playerWrap.style.display = 'block';
+    blockedEl.style.display  = 'flex';
+    document.getElementById('openExternalLink').href = url;
+    document.getElementById('nowPlayingBar').classList.add('visible');
+  }
+
+  function stopAudio() {
+    const audioEl  = document.getElementById('mainAudio');
+    const audioBar = document.getElementById('audioBar');
+    audioEl.pause(); audioEl.src = '';
+    audioBar.style.display = 'none';
+    document.getElementById('nowPlayingBar').classList.remove('visible');
+    currentTitle = null;
     renderLibrary();
   }
 
@@ -753,10 +882,11 @@
     if (!file) return;
     if (videos.some(v => v.title === file.name)) { toast('⚠️', 'Already in library'); return; }
     const url = URL.createObjectURL(file);
-    videos.push({ title: file.name, url, type: 'local', added: Date.now() });
+    const isAudio = file.type.startsWith('audio/');
+    videos.push({ title: file.name, url, type: 'local', mediaKind: isAudio ? 'audio' : 'video', added: Date.now() });
     saveVideos();
     switchTab('library');
-    toast('✅', `Added: ${file.name}`);
+    toast(isAudio ? '🎵' : '✅', `Added: ${file.name}`);
   }
 
   function addWebVideo() {
@@ -1083,7 +1213,7 @@
     e.preventDefault();
     dz.style.borderColor = '';
     const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) {
+    if (file && (file.type.startsWith('video/') || file.type.startsWith('audio/'))) {
       addLocalVideo({ target: { files: [file] } });
     }
   });
